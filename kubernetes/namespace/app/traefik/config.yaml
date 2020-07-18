@@ -1,0 +1,118 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: traefik-ingress-controller
+  namespace: app
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: traefik-ingress-controller
+  namespace: app
+  labels:
+    k8s-app: traefik-ingress-lb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: traefik-ingress-lb
+  template:
+    metadata:
+      labels:
+        k8s-app: traefik-ingress-lb
+        name: traefik-ingress-lb
+    spec:
+      serviceAccountName: traefik-ingress-controller
+      terminationGracePeriodSeconds: 60
+      containers:
+        - image: traefik:v2.2.0
+          name: traefik-ingress-lb
+          ports:
+            - name: web
+              containerPort: 80 # Expose to cluster
+            - name: websecure
+              containerPort: 443
+            - name: api
+              containerPort: 8080
+          volumeMounts:
+            - mountPath: "/ssl"
+              name: "ssl"
+            - mountPath: "/config"
+              name: "config"
+          # command: ["sh", "-c", "--"]
+          # args: ["while true; do sleep 30; done;"]
+          env:
+            - name: XDG_CONFIG_HOME
+              value: /config
+      volumes:
+        - name: ssl
+          secret:
+            secretName: certificate-secret
+        - name: config
+          configMap:
+            name: traefik-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: traefik-config
+  namespace: app
+data:
+  traefik.yaml: | # // TODO: Include tracing: {} and metrics: datadog: {}
+    log:
+      level: INFO
+    global:
+      checkNewVersion: false
+      sendAnonymousUsage: false
+    api:
+      insecure: false
+      dashboard: true
+    ping: {}
+    entryPoints:
+      web:
+        address: ":80"
+        http:
+          redirections:
+            entrypoint:
+              to: websecure
+              scheme: https
+              permanent: true
+      websecure:
+        address: ":443"
+    providers:
+      kubernetesCRD: {}
+      file:
+        directory: /config
+        watch: true
+    tls:
+      stores:
+        default:
+          defaultCertificate:
+            certFile: /ssl/tls.crt
+            keyFile: /ssl/tls.key
+      options:
+        default:
+          minVersion: VersionTLS13
+          sniStrict: true
+      certificates:
+        - certFile: /ssl/tls.crt
+          keyFile: /ssl/tls.key
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: traefik-ingress-service
+  namespace: app
+spec:
+  selector:
+    k8s-app: traefik-ingress-lb
+  ports:
+    - protocol: TCP # Expose to outside world
+      port: 80
+      name: web
+    - protocol: TCP
+      port: 443
+      name: websecure
+  type: NodePort
+  externalIPs:
+    - 62.171.146.117 # // TODO Whenever a node is added, add it here (Create script or pod or cronjob to do this)

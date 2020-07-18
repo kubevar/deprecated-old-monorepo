@@ -1,0 +1,14 @@
+**/node_modules
+.DS_Store
+dist
+yarn-error.log
+npm-debug.log
+
+
+# Python
+**/lib
+lib64
+.Python
+__pycache__
+*.pyc
+**/mypy_cache

@@ -1,0 +1,15 @@
+version: "3"
+services:
+  bitmemo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    entrypoint: /app/docker/container_startup.sh
+    volumes:
+      - ../:/app
+      - /app/docker
+      - ./container_startup.sh:/app/docker/container_startup.sh
+    ports:
+      - "30000:30000"
+    stdin_open: true
+    tty: true

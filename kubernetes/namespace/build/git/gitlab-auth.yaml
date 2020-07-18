@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gitlab-auth
+  namespace: build
+type: Opaque
+data:
+  password: TWpoS2RUeWphUDJSSHh6cF8zY3A=
+  username: YXV0aA==
